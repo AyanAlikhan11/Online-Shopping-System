@@ -77,7 +77,7 @@ public class ShopService {
         return saved;
     }
 
-    @Async("mailExecutor")
+    @Async
     public void sendOrderConfirmation(Purchase purchase) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();

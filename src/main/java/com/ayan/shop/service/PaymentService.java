@@ -3,7 +3,9 @@ package com.ayan.shop.service;
 import com.ayan.shop.model.Customer;
 import com.ayan.shop.model.OrderStatusHistory;
 import com.ayan.shop.model.Purchase;
+import com.ayan.shop.model.PurchaseItem;
 import com.ayan.shop.repository.OrderStatusHistoryRepository;
+import com.ayan.shop.repository.Products;
 import com.ayan.shop.repository.Purchases;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -65,9 +67,6 @@ public class PaymentService {
         }
 
         if (!live()) {
-            if (purchase.gatewayOrderId == null || purchase.gatewayOrderId.isBlank()) {
-                purchase.gatewayOrderId = "order_mock_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-            }
             purchase.paymentStatus = "CREATED";
             return purchases.save(purchase);
         }
@@ -115,17 +114,8 @@ public class PaymentService {
         Purchase purchase = purchases.locked(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
-        if ("CONFIRMED".equalsIgnoreCase(purchase.status)) {
+        if ("PAID".equalsIgnoreCase(purchase.paymentStatus)) {
             return purchase;
-        }
-
-        if (!live()) {
-            purchase.paymentReference = "SIM-" + UUID.randomUUID().toString().substring(0, 8);
-            purchase.gatewayPaymentId = purchase.paymentReference;
-            purchase.paymentStatus = "PAID";
-            purchase.status = "PLACED";
-            history.save(new OrderStatusHistory(purchase, "PLACED", "Demo payment simulated successfully"));
-            return purchases.save(purchase);
         }
 
         if (razorpayPaymentId == null || razorpayPaymentId.isBlank()
@@ -173,6 +163,12 @@ public class PaymentService {
         if (customer != null && !purchase.customer.id.equals(customer.id)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your order");
         }
+        if ("PAID".equalsIgnoreCase(purchase.paymentStatus)) {
+            return purchase;
+        }
+        if ("CANCELLED".equalsIgnoreCase(purchase.status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is cancelled");
+        }
         purchase.paymentReference = "SIM-" + UUID.randomUUID().toString().substring(0, 8);
         purchase.gatewayPaymentId = purchase.paymentReference;
         purchase.paymentStatus = "PAID";
@@ -182,13 +178,19 @@ public class PaymentService {
     }
 
     @Transactional
-    public Purchase cancel(Long id, Customer customer, com.ayan.shop.repository.Products productsRepo) {
+    public Purchase cancel(Long id, Customer customer, Products productsRepo) {
         Purchase purchase = purchases.locked(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         if (customer != null && !purchase.customer.id.equals(customer.id)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your order");
         }
-        for (com.ayan.shop.model.PurchaseItem item : purchase.items) {
+        if ("CANCELLED".equalsIgnoreCase(purchase.status)) {
+            return purchase;
+        }
+        if ("PAID".equalsIgnoreCase(purchase.paymentStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Paid orders cannot be cancelled");
+        }
+        for (PurchaseItem item : purchase.items) {
             productsRepo.findById(item.productId).ifPresent(p -> {
                 p.stock += item.quantity;
                 productsRepo.save(p);

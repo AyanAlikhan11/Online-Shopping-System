@@ -1,6 +1,55 @@
+# Build output
 target/
+build/
+out/
+*.class
+*.jar
+
+# Maven
+.mvn/timing.properties
+
+# Application data and uploads
 data/
 uploads/
 *.log
+logs/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IntelliJ IDEA
 .idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse / STS
+.eclipse/
 .settings/
+.classpath
+.project
+.springBeans
+.sts4-cache/
+
+# VS Code
+.vscode/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.swp
+*~
